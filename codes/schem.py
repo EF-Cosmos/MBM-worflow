@@ -13,6 +13,26 @@ import pickle
 # 使用依赖管理器导入
 amulet = dependency_manager.amulet
 
+
+def get_mc_version_config():
+    """
+    获取当前配置的 Minecraft 版本
+    返回: (platform, version_tuple)
+    """
+    try:
+        scene = bpy.context.scene
+        platform = scene.mc_platform
+        version_tuple = (
+            scene.mc_version_major,
+            scene.mc_version_minor,
+            scene.mc_version_patch
+        )
+        return platform, version_tuple
+    except:
+        # 默认版本
+        return "java", (1, 21, 9)
+
+
 #用于删除[]的部分 
 def remove_brackets(input_string):
     output_string = ""
@@ -29,7 +49,10 @@ def remove_brackets(input_string):
     return output_string
 
 
-def schem(level,chunks,cached,filename="schem",position=(0,0,0)):
+def schem(level, chunks, cached, filename="schem", position=(0, 0, 0)):
+    # 获取配置的版本
+    platform, version = get_mc_version_config()
+
     # 获取最小和最大坐标
     min_coords = chunks[0]
     max_coords = chunks[1]
@@ -82,7 +105,7 @@ def schem(level,chunks,cached,filename="schem",position=(0,0,0)):
                             w=1
                         else:
                             w=0
-                        id =str(level.translation_manager.get_version("java", (1, 20, 4)).block.from_universal(id)[0]).replace('"', '')
+                        id =str(level.translation_manager.get_version(platform, version).block.from_universal(id)[0]).replace('"', '')
                         try:
                             result = remove_brackets(id) 
                             if result not in exclude:  
@@ -139,7 +162,10 @@ def schem(level,chunks,cached,filename="schem",position=(0,0,0)):
     return obj
     
 
-def schem_chunk(level,chunks,x_list,filename="schem",position=(0,0,0)):
+def schem_chunk(level, chunks, x_list, filename="schem", position=(0, 0, 0)):
+    # 获取配置的版本
+    platform, version = get_mc_version_config()
+
     # 获取最小和最大坐标
     min_coords = chunks[0]
     max_coords = chunks[1]
@@ -155,7 +181,7 @@ def schem_chunk(level,chunks,x_list,filename="schem",position=(0,0,0)):
             for z in range(min_coords[2], max_coords[2] + 1):
                 try:
                     # 获取坐标处的方块       
-                    blc =level.get_version_block(x, y, z, "main",("java", (1, 20, 4)))
+                    blc =level.get_version_block(x, y, z, "main",(platform, version))
                     id =blc[0]
                     if isinstance(id,amulet.api.block.Block):
                         id = str(id).replace('"', '')
@@ -176,7 +202,10 @@ def schem_chunk(level,chunks,x_list,filename="schem",position=(0,0,0)):
     
 
 #流体
-def schem_liquid(level,chunks, filename="liquid", position=(0, 0, 0)):
+def schem_liquid(level, chunks, filename="liquid", position=(0, 0, 0)):
+    # 获取配置的版本
+    platform, version = get_mc_version_config()
+
     vertices = []
     faces = []
     direction = []
@@ -226,12 +255,12 @@ def schem_liquid(level,chunks, filename="liquid", position=(0, 0, 0)):
                 if isinstance(id,amulet.api.block.Block):
                     if id.extra_blocks !=():
                         try:
-                            id=str(level.translation_manager.get_version("java", (1, 20, 4)).block.from_universal(id.extra_blocks[0])[0]).replace('"', '')
+                            id=str(level.translation_manager.get_version(platform, version).block.from_universal(id.extra_blocks[0])[0]).replace('"', '')
                         except:
                             continue
                     else:
                         try:
-                            id =str(level.translation_manager.get_version("java", (1, 20, 4)).block.from_universal(id)[0]).replace('"', '')
+                            id =str(level.translation_manager.get_version(platform, version).block.from_universal(id)[0]).replace('"', '')
                         except:
                             continue
                     
@@ -254,10 +283,10 @@ def schem_liquid(level,chunks, filename="liquid", position=(0, 0, 0)):
                                 continue
                             if isinstance(name,amulet.api.block.Block):
                                 if name.extra_blocks !=():
-                                    name=str(level.translation_manager.get_version("java", (1, 20, 4)).block.from_universal(name.extra_blocks[0])[0]).replace('"', '')
+                                    name=str(level.translation_manager.get_version(platform, version).block.from_universal(name.extra_blocks[0])[0]).replace('"', '')
                                 else:
                                     try:
-                                        name =str(level.translation_manager.get_version("java", (1, 20, 4)).block.from_universal(name)[0]).replace('"', '')
+                                        name =str(level.translation_manager.get_version(platform, version).block.from_universal(name)[0]).replace('"', '')
                                     except:
                                         continue
                                 # 找到等号的位置

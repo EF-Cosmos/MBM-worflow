@@ -274,6 +274,14 @@ class ExportToSave(bpy.types.Operator):
     foldername =""
 
     def execute(self, context):
+        # 获取配置的版本
+        platform = context.scene.mc_platform
+        version = (
+            context.scene.mc_version_major,
+            context.scene.mc_version_minor,
+            context.scene.mc_version_patch
+        )
+
         self.foldername = context.scene.save_list
         worldpath = os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))),"saves",self.foldername)
         level = amulet.load_level(worldpath)
@@ -366,7 +374,7 @@ class ExportToSave(bpy.types.Operator):
                 else:
                     block = Block(namespace, path)
                 # 在世界中放置方块
-                level.set_version_block(x,z,-y,"minecraft:overworld",("java", (1, 20, 4)),block)
+                level.set_version_block(x, z, -y, "minecraft:overworld", (platform, version), block)
 
         # 保存修改后的世界
         level.save()

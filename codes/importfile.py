@@ -179,7 +179,9 @@ class ImportSchem(bpy.types.Operator):
                 os.remove(file_path)
             level = amulet.load_level(self.filepath)
             chunks = [list(point) for point in level.bounds("main").bounds]
-            nbt_data = amulet_nbt._load_nbt.load(self.filepath)
+            # 使用公共 API 加载 NBT 数据
+            with open(self.filepath, "rb") as f:
+                nbt_data = amulet_nbt.load(f)
             
             #data=nbt_data["BlockEntities"][0]["data"]["data"]
             # 解析数据为坐标点
@@ -429,7 +431,15 @@ class ImportWorld(bpy.types.Operator):
 
 
     def execute(self, context):
-        filename="world"
+        # 获取配置的版本
+        platform = context.scene.mc_platform
+        version = (
+            context.scene.mc_version_major,
+            context.scene.mc_version_minor,
+            context.scene.mc_version_patch
+        )
+
+        filename = "world"
         level = amulet.load_level(self.filepath)
         min_coords=context.scene.min_coordinates
         max_coords=context.scene.max_coordinates
@@ -468,7 +478,7 @@ class ImportWorld(bpy.types.Operator):
             for y in range(min_coords[1], max_coords[1] + 1):
                 for z in range(min_coords[2], max_coords[2] + 1):
                     # 获取坐标处的方块       
-                    blc =level.get_version_block(x, y, z, "minecraft:overworld",("java", (1, 20, 4)))
+                    blc = level.get_version_block(x, y, z, "minecraft:overworld", (platform, version))
                     id =blc[0]
                     if isinstance(id,amulet.api.block.Block):
                         id = str(id).replace('"', '')

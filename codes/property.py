@@ -12,6 +12,22 @@ import importlib
 from .. import config
 
 
+def get_mc_version(context):
+    """
+    从 Blender 场景属性获取 Minecraft 版本配置
+    返回: (platform, version_tuple)
+    例如: ("java", (1, 21, 11))
+    """
+    scene = context.scene
+    platform = scene.mc_platform
+    version_tuple = (
+        scene.mc_version_major,
+        scene.mc_version_minor,
+        scene.mc_version_patch
+    )
+    return platform, version_tuple
+
+
 def switch_block_update(self, context):
     scene = context.scene
     my_properties = scene.my_properties
@@ -164,6 +180,39 @@ class Property(bpy.types.PropertyGroup):
     bpy.types.Scene.separate_vertices_by_blockid = bpy.props.BoolProperty(name="separate_vertices_by_blockid", default=False)
     bpy.types.Scene.separate_vertices_by_chunk = bpy.props.BoolProperty(name="separate_vertices_by_blockid", default=False)
     bpy.types.Scene.schem_filename = bpy.props.StringProperty(name=".schem文件名", default="file")
+
+    # Minecraft 版本配置
+    bpy.types.Scene.mc_platform = bpy.props.EnumProperty(
+        name="MC 平台",
+        description="Minecraft 版本平台",
+        items=[
+            ("java", "Java Edition", "Java 版本"),
+            ("bedrock", "Bedrock Edition", "基岩版（主机/手机）")
+        ],
+        default="java"
+    )
+    bpy.types.Scene.mc_version_major = bpy.props.IntProperty(
+        name="主版本号",
+        description="Minecraft 主版本号（如 1.21.11 中的 1）",
+        default=1,
+        min=1,
+        max=2
+    )
+    bpy.types.Scene.mc_version_minor = bpy.props.IntProperty(
+        name="次版本号",
+        description="Minecraft 次版本号（如 1.21.11 中的 21）",
+        default=21,
+        min=7,
+        max=21
+    )
+    bpy.types.Scene.mc_version_patch = bpy.props.IntProperty(
+        name="补丁版本号",
+        description="Minecraft 补丁版本号（如 1.21.9 中的 9）",
+        default=9,
+        min=0,
+        max=10
+    )
+
     bpy.types.Scene.download_path = bpy.props.StringProperty(
         name="插件路径",
         default="https://github.com/BaiGave/BaiGave_Plugin/releases",

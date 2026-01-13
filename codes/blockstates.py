@@ -1,5 +1,6 @@
 import json
 import os
+import bpy
 
 from . import dependency_manager
 from .model import extract_vertices_from_elements
@@ -8,12 +9,35 @@ from .functions.get_data import get_file_path, get_all_data
 # 使用依赖管理器导入
 amulet = dependency_manager.amulet
 
-def blockstates(coord,chunks, level, vertices, faces, direction, texture_list, uv_list, uv_rotation_list, vertices_dict):
+
+def get_mc_version_config():
+    """
+    获取当前配置的 Minecraft 版本
+    返回: (platform, version_tuple)
+    """
+    try:
+        scene = bpy.context.scene
+        platform = scene.mc_platform
+        version_tuple = (
+            scene.mc_version_major,
+            scene.mc_version_minor,
+            scene.mc_version_patch
+        )
+        return platform, version_tuple
+    except:
+        # 默认版本
+        return "java", (1, 21, 9)
+
+
+def blockstates(coord, chunks, level, vertices, faces, direction, texture_list, uv_list, uv_rotation_list, vertices_dict):
     try:
         id = level.get_block(coord[0], coord[1], coord[2], "main")
     except:
         return vertices,faces,direction,texture_list,uv_list,uv_rotation_list
-    id =str(level.translation_manager.get_version("java", (1, 20, 4)).block.from_universal(id)[0]).replace('"', '')
+
+    # 获取配置的版本
+    platform, version = get_mc_version_config()
+    id = str(level.translation_manager.get_version(platform, version).block.from_universal(id)[0]).replace('"', '')
     # 定义一个元组，存储六个方向的偏移量，按照 上下北南东西 的顺序排序
     offsets = ((0, 0, -1),  # 东
                 (0, 0, 1),  # 西
@@ -29,7 +53,7 @@ def blockstates(coord,chunks, level, vertices, faces, direction, texture_list, u
         try:
             name = level.get_block(adj_coord[0], adj_coord[1], adj_coord[2], "main")
             if isinstance(name,amulet.api.block.Block):
-                name =str(level.translation_manager.get_version("java", (1, 20, 4)).block.from_universal(name)[0]).replace('"', '')
+                name = str(level.translation_manager.get_version(platform, version).block.from_universal(name)[0]).replace('"', '')
                 parent = get_parent(name)
                 # 如果 parent 是 "block/cube"，将 has_air 设为 False
                 if parent == "block/cube":
