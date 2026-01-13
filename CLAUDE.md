@@ -11,10 +11,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### 模块加载系统
 - `__init__.py`: 插件入口，定义 `bl_info` 元数据
 - `load_modules.py`: 管理所有模块的动态加载和重载，使用 `importlib.reload()` 支持开发时热更新
-- `install.py`: 首次安装时解压 `site-packages.zip` 依赖并重启 Blender
+- `codes/dependency_manager.py`: 依赖管理模块，提供安全导入接口和优雅降级
 
 ### 核心功能模块
-- `codes/property.py`: 定义所有 Blender 场景属性，包括路径配置、方块切换列表、游戏规则等
+- `codes/property.py`: 定义所有 Blender 场景属性，包括路径配置、方块切换列表、MC 版本配置
 - `codes/register.py`: 方块注册系统，将 Minecraft 方块状态映射到 Blender 对象 ID
 - `codes/importfile.py`: 导入 .schem、.nbt 文件和世界存档
 - `codes/exportfile.py`: 导出为 .schem 文件或直接写入存档
@@ -27,6 +27,109 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Schem 节点组**: 将点云实例化为方块模型
 - **ObjToBlocks 节点组**: 普通网格转方块预览
 - **模型转换节点组**: 完整的网格到方块转换，支持楼梯、台阶等特殊方块
+
+## Minecraft 版本转换系统
+
+### PyMCTranslate 架构
+
+插件使用 PyMCTranslate 库进行 Minecraft 版本间的方块数据转换：
+
+```
+特定版本 → Universal Format → 目标版本
+(1.12)        (中间层)          (1.21)
+```
+
+**Universal Format** 是平台无关的方块表示：
+```python
+{
+    "namespace": "minecraft",
+    "base_name": "oak_log",
+    "properties": {"axis": "x"}
+}
+```
+
+### 版本配置系统
+
+版本配置已从硬编码改为可配置属性（`property.py`）：
+```python
+bpy.types.Scene.mc_platform        # 平台 (java/bedrock)
+bpy.types.Scene.mc_version_major   # 主版本 (1)
+bpy.types.Scene.mc_version_minor   # 次版本 (21)
+bpy.types.Scene.mc_version_patch   # 补丁版本 (9)
+```
+
+**获取版本配置的辅助函数**：
+```python
+# 在 blockstates.py, schem.py 中
+def get_mc_version_config():
+    platform, version_tuple = scene.mc_platform, (...)
+    return platform, version_tuple
+```
+
+**版本支持范围**（PyMCTranslate 1.2.39）：
+- Java Edition: 1.12 ~ 1.21.9
+- Bedrock Edition: 1.10 ~ 1.20.x
+
+## 依赖管理（Blender 5.0+）
+
+### 依赖结构
+
+```
+blender_manifest.toml  ← Blender 5.0+ 自动处理
+    ↓
+wheels/
+    ├── py3-none-any.whl  (跨平台)
+    └── cp311-win_amd64.whl  (平台特定)
+```
+
+### 关键依赖
+
+| 包名 | 作用 | 版本 |
+|------|------|------|
+| amulet-core | Minecraft 世界解析 | 1.9.33 |
+| PyMCTranslate | 版本转换系统 | 1.2.39 |
+| amulet-nbt | NBT 数据格式 | 2.1.5 |
+| portalocker | 文件锁定 | 3.2.0 |
+| pillow | 图像处理 | 12.1.0 |
+
+### 安全导入模式
+
+使用 `codes/dependency_manager.py` 提供安全导入：
+```python
+from .codes.dependency_manager import amulet, amulet_nbt
+
+# 依赖缺失时返回 None，优雅降级
+if amulet is None:
+    return {'CANCELLED'}
+```
+
+## Blender 5.0+ API 变化
+
+### 几何节点修改器属性访问
+
+```python
+# Blender 5.0+ 正确方式
+try:
+    modifier['Input_58'] = value  # 旧语法
+except (KeyError, TypeError):
+    if modifier.node_group:
+        for socket in modifier.node_group.inputs:
+            if socket.identifier == 'Input_58':
+                socket.default_value = value
+                break
+```
+
+### 版本配置属性
+
+使用 `IntProperty` 替代硬编码：
+```python
+bpy.types.Scene.mc_version_major = bpy.props.IntProperty(
+    name="主版本号",
+    default=1,
+    min=1,
+    max=2
+)
+```
 
 ## 常用命令
 
@@ -41,6 +144,9 @@ load_modules.register()
 # 查看当前注册的方块映射
 import bpy
 id_map = eval(bpy.data.texts.get("Blocks.py").as_string())
+
+# 测试版本支持
+python test_version_quick.py
 ```
 
 ### 测试导入
@@ -71,64 +177,30 @@ bpy.ops.baigave.merge_overlapping_faces()
 - Minecraft 坐标 (x, y, z) 转换为 Blender (x, -z, y)
 - Y 轴在 MC 中是高度，在 Blender 中映射到 Z 轴
 
-## 文件结构
+## 配置文件
 
-```
-MBM-worflow/
-├── __init__.py              # 插件入口
-├── load_modules.py          # 模块加载器
-├── config.py                # 默认配置
-├── install.py               # 安装脚本
-├── codes/
-│   ├── property.py          # 属性定义
-│   ├── register.py          # 方块注册
-│   ├── importfile.py        # 导入功能
-│   ├── exportfile.py        # 导出功能
-│   ├── schem.py             # Schem 处理
-│   ├── blockstates.py       # Blockstate 解析
-│   ├── block.py             # 方块对象创建
-│   ├── model.py             # 网格模型生成
-│   ├── ui.py                # 用户界面
-│   ├── functions/           # 工具函数
-│   │   ├── mesh_to_mc.py    # 网格转方块
-│   │   ├── get_data.py      # 数据获取
-│   │   └── ...
-│   ├── classification_files/ # 方块分类
-│   │   ├── block_type.py    # 方块类型定义
-│   │   └── shader_type.py   # 着色器类型
-│   └── blend_files/         # 外部 blend 资源
-├── colors/                  # 颜色映射文件
-└── multiprocess/            # 多进程支持（已注释）
+### blender_manifest.toml
+
+Blender 5.0+ 插件清单文件：
+```toml
+schema_version = "1.0.0"
+type = "add-on"
+blender_version_min = "5.0.0"
+
+wheels = [
+    "./wheels/amulet_core-1.9.33-py3-none-any.whl",
+    "./wheels/pymctranslate-1.2.39-py3-none-any.whl",
+    # ... 其他依赖
+]
 ```
 
-## 依赖项
+### 版本配置
 
-- `amulet`: Minecraft 世界格式解析
-- `amulet_nbt`: NBT 数据格式
-- `bmesh`: Blender 网格操作
-- `numpy`: 数组计算
-
-这些依赖打包在 `site-packages.zip` 中，由 `install.py` 解压到 Blender 的 site-packages 目录。
-
-## Blender 版本支持
-
-- **当前支持**: Blender 5.0+
-- **Blender 5.0 API 变化**:
-  - 几何节点修改器属性访问 `modifier['Input_XX']` 语法已被废弃，需要使用 try-except 并通过节点组访问作为回退方案
-  - `attribute_convert` 的 `UV_MAP` 模式已移除，必须使用 `GENERIC` 模式
-
-**兼容性代码示例**:
-```python
-# 修饰符属性访问（Blender 5.0+）
-try:
-    modifier['Input_58'] = value
-except (KeyError, TypeError):
-    if modifier.node_group:
-        for socket in modifier.node_group.inputs:
-            if socket.identifier == 'Input_58':
-                socket.default_value = value
-                break
-```
+场景属性（可通过 Blender UI 或代码修改）：
+- `mc_platform`: "java" 或 "bedrock"
+- `mc_version_major`: 1
+- `mc_version_minor`: 21
+- `mc_version_patch`: 9
 
 ## 注意事项
 
@@ -137,6 +209,8 @@ except (KeyError, TypeError):
 3. **几何节点路径**: `geometrynodes_blend_path` 属性指向包含节点组的 .blend 文件
 4. **缓存清理**: 更新模组/资源包后需删除 `schemcache/` 缓存
 5. **不可逆操作**: 应用几何节点修改器后无法恢复到点云编辑状态
+6. **版本限制**: PyMCTranslate 1.2.39 最高支持 Java 1.21.9，配置超过此版本会失败
+7. **私有 API**: 避免使用 `amulet_nbt._load_nbt` 等私有模块，使用公共 API `amulet_nbt.load()`
 
 ## 开发提示
 
@@ -146,3 +220,10 @@ except (KeyError, TypeError):
 - 使用 `bpy.app.timers.register()` 处理耗时操作的完成回调
 - **修改几何节点属性时**：始终使用 try-except 模式处理属性访问，参考 `mesh_to_mc.py` 和 `surface_optimization.py` 中的实现
 - **版本检查**：不再需要支持 Blender 4.x，所有新代码应直接使用 Blender 5.0+ API
+- **版本转换**：使用 `level.translation_manager.get_version(platform, version)` 获取版本转换器
+
+## 相关文档
+
+- `doc/data-flow-diagrams.md`: 详细的数据流程图
+- `doc/dependency-update-guide.md`: 依赖更新指南
+- `test_version_support.py`: 版本支持测试脚本
