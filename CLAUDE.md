@@ -227,13 +227,101 @@ wheels = [
 - 修改 UI 需编辑 `ui.py`
 - 几何节点修改需编辑外部 `blend_files/GeometryNodes.blend`
 - 使用 `bpy.app.timers.register()` 处理耗时操作的完成回调
-- **修改几何节点属性时**：始终使用 try-except 模式处理属性访问，参考 `mesh_to_mc.py` 和 `surface_optimization.py` 中的实现
+- **修改几何节点属性时**：始终使用 `set_modifier_socket_value()` 辅助函数，该函数封装了 Blender 5.0+ 的兼容性处理
 - **版本检查**：不再需要支持 Blender 4.x，所有新代码应直接使用 Blender 5.0+ API
 - **版本转换**：使用 `level.translation_manager.get_version(platform, version)` 获取版本转换器
+- **配置持久化**：`config.py` 用于存储插件配置，包含默认的模组列表和资源包配置
+
+## 常见开发任务
+
+### 添加新的几何节点属性访问
+
+当需要操作几何节点修改器的输入/输出 socket 时，使用 `set_modifier_socket_value()` 辅助函数：
+
+```python
+from codes.functions.mesh_to_mc import set_modifier_socket_value
+
+# 设置输入 socket 值
+set_modifier_socket_value(modifier, 'Input_58', 'UV', uv_value, is_input=True)
+
+# 设置输出属性名称
+set_modifier_socket_value(modifier, 'Output_2_attribute_name', 'attribute', 'blockid', is_input=False)
+```
+
+### 获取 Minecraft 版本配置
+
+```python
+from codes.property import get_mc_version
+
+platform, version_tuple = get_mc_version(context)
+# 例如: ("java", (1, 21, 9))
+```
+
+### 安全导入依赖
+
+```python
+from codes.dependency_manager import amulet, amulet_nbt
+
+# 检查依赖是否可用
+if amulet is None:
+    return {'CANCELLED'}
+```
+
+### 读取方块 ID 映射
+
+```python
+import bpy
+
+text_data = bpy.data.texts.get("Blocks.py")
+if text_data:
+    id_map = eval(text_data.as_string())
+    # id_map: {"minecraft:stone": 0, ...}
+```
 
 ## 相关文档
 
 - `doc/data-flow-diagrams.md`: 详细的数据流程图
 - `doc/dependency-update-guide.md`: 依赖更新指南
+- `doc/water-handling-analysis.md`: 水体方块处理分析
 - `test_version_support.py`: 版本支持测试脚本
 - `test_version_quick.py`: 快速版本测试脚本（控制台用）
+
+## 项目结构概览
+
+```
+MBM_workflow/
+├── __init__.py                 # 插件入口
+├── load_modules.py             # 模块加载和重载
+├── blender_manifest.toml       # Blender 5.0+ 清单文件
+├── config.py                   # 配置持久化
+├── CLAUDE.md                   # 本文档
+├── wheels/                     # Python 依赖包
+├── codes/
+│   ├── dependency_manager.py   # 依赖管理
+│   ├── property.py             # 场景属性定义
+│   ├── register.py             # 方块注册系统
+│   ├── blockstates.py          # 方块状态解析
+│   ├── block.py                # 方块对象创建
+│   ├── model.py                # 材质系统
+│   ├── schem.py                # 导入处理
+│   ├── exportfile.py           # 导出处理
+│   ├── importfile.py           # 导入操作符
+│   ├── create_world.py         # 存档创建
+│   ├── functions/              # 功能模块
+│   │   ├── mesh_to_mc.py       # 网格转方块
+│   │   ├── surface_optimization.py  # 面优化
+│   │   ├── sway_animation.py   # 摇摆动画
+│   │   ├── brush.py            # 笔刷工具
+│   │   ├── paint.py            # 上色工具
+│   │   └── ...
+│   ├── classification_files/   # 方块分类
+│   │   └── block_type.py
+│   └── blend_files/            # 外部资源
+│       ├── GeometryNodes.blend # 几何节点组
+│       └── Material.blend      # 材质着色器库
+├── mutf8/                      # UTF-8 修改支持
+├── colors/                     # 颜色对照表
+├── doc/                        # 文档目录
+├── multiprocess/               # 多进程支持（实验性）
+└── test_version_*.py           # 测试脚本
+```
