@@ -1,221 +1,281 @@
+# MBM Workflow / BaiGave's Tool
 
+一个用于在 Blender 内直接导入、编辑和导出 Minecraft 地图的插件。与 Mineways 或 jmc2obj 等工具不同，本插件导入的是带有方块属性的点云数据，通过几何节点实例化方块模型，支持非破坏性编辑。
 
-# 白给的插件
+[![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)](https://github.com/BaiGave/BaiGave_Plugin/blob/main/LICENSE)
+[![Blender](https://img.shields.io/badge/Blender-5.0+-orange.svg)](https://www.blender.org/download/)
 
-这是一个用于在Blender内直接导入模组地图、编辑Minecraft地图、将普通网格体转换为Minecraft方块，并将结果导出到存档的插件。
-<!-- PROJECT SHIELDS -->
+## 功能概览
 
-[![Contributors][contributors-shield]][contributors-url]
-[![Forks][forks-shield]][forks-url]
-[![Stargazers][stars-shield]][stars-url]
-[![Issues][issues-shield]][issues-url]
-[![LinkedIn][linkedin-shield]][linkedin-url]
+| 功能类别 | 描述 |
+|---------|------|
+| **地图导入** | 支持 .schem、.litematic、.nbt 文件及世界存档 |
+| **地图编辑** | 方块笔刷、区域复制、方块移动、延时建筑动画 |
+| **网格转换** | 将普通 Blender 网格转换为 Minecraft 方块 |
+| **地图导出** | 导出为 .schem 文件或直接写入存档 |
+| **版本转换** | 支持 Java 1.12~1.21.9 和 Bedrock 1.10~1.20.x |
+| **网格优化** | 合并重叠面、植物摇摆动画、水体处理 |
 
-![logo](https://github.com/BaiGave/BaiGave_Plugin/assets/107305554/f7eaf1a1-c216-4903-8c15-505592ba057c)
-<!-- PROJECT LOGO -->
-<br />
-<p align="center">
+---
 
-  
+## 地图导入
 
-  <h3 align="center">MC-Blender插件</h3>
-  <p align="center">
-    将Blender和Minecraft联系在一起
-    <br />
-    <a href="https://github.com/BaiGave/BaiGave_Plugin">查看Demo</a>
-    ·
-    <a href="https://github.com/BaiGave/BaiGave_Plugin/issues">报告Bug</a>
-    ·
-    <a href="https://github.com/BaiGave/BaiGave_Plugin/issues">提出新特性</a>
-  </p>
+### 支持的文件格式
 
-</p>
+| 格式 | 描述 | 依赖 |
+|------|------|------|
+| `.schem` | WorldEdit / Sponge Schematic | amulet-core |
+| `.litematic` | Litematica 模组格式 | litemapy |
+| `.nbt` | 原版结构文件 | amulet-nbt |
+| 存档目录 | Minecraft 世界存档 | amulet-core |
 
+### 导入特性
 
- 
-## 目录
+- **多区域支持**：Litematic 文件的每个区域创建独立的 Blender 对象
+- **坐标转换**：自动转换 MC 坐标 (x, y, z) 到 Blender (x, -z, y)
+- **方块状态保留**：完整保留方块属性（如楼梯朝向、红砖状态等）
+- **群系信息**：保留群系数据用于后续着色
 
-- [插件的基础配置](#插件的基础配置)
-  - [安装插件](#安装插件)
-  - [导入前准备](#导入前准备)
-- [开始导入地图](#开始导入地图)
-  - [导入.schem文件](#导入schem文件)
-  - [导入.nbt文件](#导入nbt文件)
-  - [导入存档文件](#导入存档文件)
-  - [导入blockstate文件夹内的.json文件](#导入blockstae文件夹内的json文件)
-- [作者](#作者)
+### 使用流程
 
-### 插件的基础配置
+1. **配置模组和资源包**
+   - 在插件面板中安装模组 `.jar` 文件和资源包 `.zip`
+   - 调整优先级顺序（越靠上优先级越高）
 
+2. **导入文件**
+   ```
+   Blender → 侧边栏 (N) → BaiGave's Tool → 导入地图
+   ```
 
-###### 安装插件
+3. **导入模式选择**
+   - **点云模式**（默认）：保留非破坏性编辑能力
+   - **按方块状态分离**：每个方块类型创建独立对象
 
-请按照正常步骤安装插件
+---
 
-   
-![1](https://github.com/BaiGave/BaiGave_Plugin/assets/107305554/d25b907a-2240-4c83-af98-d74f4d5ab42d)
+## 地图编辑
 
-（如有报错，请确定是否是下载的release里的文件，直接下载源代码会出错）
+### 方块笔刷
 
+基于哈希字典的精确坐标查找系统：
 
+- **精确定位**：使用整数坐标哈希查找，无距离误差
+- **支持操作**：放置、替换、删除方块
+- **笔刷设置**：大小、形状、方块类型
 
-###### **导入前准备**
+```python
+# 笔刷索引构建
+self.vertex_map = {}
+for i, v in enumerate(mesh.vertices):
+    coord = (int(v.co.x), int(v.co.y), int(v.co.z))
+    self.vertex_map[coord] = i
+```
 
-点击此按钮，安装原版/模组的.jar文件
+### 区域操作
 
-![2](https://github.com/BaiGave/BaiGave_Plugin/assets/107305554/1bcabfb5-5b6d-4215-ba46-0453b0f9ea68)
+- **区域复制**：选择区域并复制到新位置
+- **方块移动**：移动单个或多个方块
+- **批量替换**：按类型或属性批量替换方块
 
-资源包同理
+### 几何节点特效
 
-然后此按钮可以控制优先级顺序（越上面的优先级越高）
+| 特效 | 描述 |
+|------|------|
+| **延时建筑** | 通过几何节点实现方块逐个出现的动画 |
+| **地形破坏** | 模拟方块被破坏的效果 |
+| **植物摇摆** | 自动为植物和树叶添加风力摇摆动画 |
 
-![3](https://github.com/BaiGave/BaiGave_Plugin/assets/107305554/2640fcac-439c-4f54-9a34-222f62d36664)
+### 群系着色
 
-和MC的这个界面类似：
+通过调整顶点的 `biome` 属性实现群系颜色变化：
+- 草方块颜色随群系变化
+- 树叶、藤蔓等植物受群系影响
+- 实时预览效果
 
-![4](https://github.com/BaiGave/BaiGave_Plugin/assets/107305554/7e373066-ccfb-46fd-ae9a-b075e951faf4)
+---
 
+## 网格转方块
 
+将普通 Blender 网格体转换为 Minecraft 方块结构：
 
-### 开始导入地图
+### 转换流程
 
+1. **创建预览**：使用 `ObjToBlocks` 几何节点组生成方块预览
+2. **完整转换**：应用 `模型转换节点组` 进行完整转换
+3. **特殊方块支持**：自动识别楼梯、台阶、栅栏等特殊方块
 
-###### 导入schem文件
+### 支持的方块类型
 
-(注：你可以用worldedit模组从游戏内导出.schem文件)
+| 类别 | 示例 |
+|------|------|
+| 实心方块 | 石头、泥土、木头 |
+| 楼梯/台阶 | 所有材质的楼梯和台阶 |
+| 栅栏/墙 | 各类栅栏和墙方块 |
+| 植物 | 花、草、藤蔓（需特殊处理） |
+| 红石元件| 活塞、侦测器等 |
 
-1.点击导入.schem文件
+---
 
-![5](https://github.com/BaiGave/BaiGave_Plugin/assets/107305554/413f10c9-dfea-4f42-afc0-f393e33a11b7)
+## 网格优化
 
-2.然后会跳出二级面板，我们先按导入.schem文件
+### 合并重叠面
 
-![6](https://github.com/BaiGave/BaiGave_Plugin/assets/107305554/273a2cea-0a5b-43e6-926b-a39f0797b8b4)
+优化算法：移除相邻方块之间不可见的面
 
-3.选择你的.schem文件
+```
+应用修改器 → 合并重叠面 → 面数显著减少
+```
 
-![7](https://github.com/BaiGave/BaiGave_Plugin/assets/107305554/d09dc514-509a-454f-a418-284630aa6236)
+**效果示例**：
+- 玻璃窗 UV 错误修复
+- 固体方块内部面自动移除
+- 保持外部视觉完全一致
 
-4.导入成功！
-![8](https://github.com/BaiGave/BaiGave_Plugin/assets/107305554/ec2eee60-b4b0-4deb-b094-0deb11f51206)
-(有些方块的UV可能会有问题，我们将在稍后解决)
+### 使用步骤
 
-当我们勾选了按照方块状态分离：
+1. 应用几何节点修改器（不可逆操作）
+2. 选中需要优化的网格体
+3. 执行 `合并重叠面` 操作
 
-![9](https://github.com/BaiGave/BaiGave_Plugin/assets/107305554/3d1dbdb4-a7af-4bd0-8bb5-06a430796f14)
+---
 
-很好，我们成功导入了.schem文件
+## 地图导出
 
-不过要注意的是，我的插件导入的方式和Mineways或者是jmc2obj有一些不同。
+### 导出格式
 
-Mineways或是jmc2obj都是在外部处理好网格后，通过导入.obj文件导入进blender的。
+| 格式 | 描述 | 版本转换 |
+|------|------|---------|
+| `.schem` | Sponge Schematic 格式 | 支持 |
+| 存档写入 | 直接写入 Minecraft 存档 | 支持 |
 
-而我的则是只导入带有blockid属性和biome属性的点云，以及所用到的方块模型进blender(每个方块状态都有一个模型在Blocks集合里)
+### 版本转换系统
 
-（你可以看到它们就只是一些点罢了）
+基于 **PyMCTranslate** 的版本转换架构：
 
-https://github.com/BaiGave/BaiGave_Plugin/assets/107305554/1b347cb0-324b-47a6-b659-185e1c233cfb
+```
+源版本 (1.12) → Universal Format → 目标版本 (1.21)
+```
 
-所以我们可以做到以下操作：
+**支持范围**：
+- Java Edition: 1.12 ~ 1.21.9
+- Bedrock Edition: 1.10 ~ 1.20.x
 
-方块移动：
+**版本配置**：
+```python
+# 在 Blender 场景属性中配置
+mc_platform: "java" | "bedrock"
+mc_version_major: 1
+mc_version_minor: 21
+mc_version_patch: 9
+```
 
-https://github.com/BaiGave/BaiGave_Plugin/assets/107305554/9cc36539-7890-4cef-a5ea-dc2cbf9886db
+---
 
-区域复制：
+## 安装与配置
 
-https://github.com/BaiGave/BaiGave_Plugin/assets/107305554/b4f92b2a-fd6d-460f-a283-15275e693b9e
+### 系统要求
 
-几何节点实现的延时建筑：
+- **Blender**: 5.0 或更高版本
+- **操作系统**: Windows / macOS / Linux
 
-https://github.com/BaiGave/BaiGave_Plugin/assets/107305554/737c2b52-0451-4318-909e-694bfef18340
+### 安装步骤
 
-几何节点实现的地形破坏：
+1. 下载 [Release](https://github.com/BaiGave/BaiGave_Plugin/releases) 文件
+2. 在 Blender 中：`编辑 → 偏好设置 → 插件 → 安装`
+3. 选择下载的 `.zip` 文件
+4. 启用插件
 
-https://github.com/BaiGave/BaiGave_Plugin/assets/107305554/4bc00090-0fce-4a70-b23c-3b8c0dea58c2
+### 依赖管理
 
-（事实上还可以实现更多）
+插件使用 `wheels/` 目录管理 Python 依赖：
 
-不过，话说回来，我们该怎么将导入进来的场景变成mineways或者jmc2obj导入进来的那种的网格体呢？
+| 包名 | 版本 | 用途 |
+|------|------|------|
+| amulet-core | 1.9.33 | Minecraft 世界解析 |
+| PyMCTranslate | 1.2.39 | 版本转换 |
+| amulet-nbt | 2.1.5 | NBT 数据格式 |
+| litemapy | 0.9.0b0 | Litematic 支持 |
+| pillow | 12.1.0 | 图像处理 |
 
-1.应用修改器
+Blender 5.0+ 会自动通过 `blender_manifest.toml` 安装这些依赖。
 
-![10](https://github.com/BaiGave/BaiGave_Plugin/assets/107305554/fcabb29d-01b3-4cd0-937a-968b05589e2f)
+---
 
-(此过程不可逆，一旦应用，将无法实现之前的所有操作）[如果不小心应用了可以尝试crtl z 撤销大法]
+## 开发
 
-2.选中需要减面的网格体，点击合并重叠面
+### 项目结构
 
-![11](https://github.com/BaiGave/BaiGave_Plugin/assets/107305554/058b5200-9051-4d97-8a3e-427a16bfed41)
+```
+MBM_workflow/
+├── __init__.py                 # 插件入口
+├── load_modules.py             # 模块加载系统
+├── blender_manifest.toml       # Blender 5.0+ 清单
+├── codes/
+│   ├── dependency_manager.py   # 依赖管理
+│   ├── property.py             # 场景属性
+│   ├── schem.py                # schem/litematic 处理
+│   ├── importfile.py           # 导入操作符
+│   ├── exportfile.py           # 导出操作符
+│   ├── blockstates.py          # 方块状态解析
+│   ├── register.py             # 方块注册系统
+│   ├── functions/
+│   │   ├── brush.py            # 方块笔刷
+│   │   ├── mesh_to_mc.py       # 网格转方块
+│   │   ├── surface_optimization.py  # 面优化
+│   │   └── sway_animation.py   # 摇摆动画
+│   └── blend_files/            # 几何节点和材质库
+└── doc/                        # 详细文档
+```
 
-3.最后选中所有固体方块（不可以是花，藤蔓，草等方块），及UV有问题的方块
+### 常用命令
 
-![12](https://github.com/BaiGave/BaiGave_Plugin/assets/107305554/e9f543b6-a42e-4ca0-89a4-e62f7893e0b0)
+```python
+# 重载插件（Blender 控制台）
+import importlib
+import MBM_workflow.load_modules as load_modules
+importlib.reload(load_modules)
+load_modules.register()
 
-4.目前面数已经无限接近最少了，如图UV错误的玻璃窗也被修复了
+# 测试版本支持
+python test_version_quick.py
+```
 
-![13](https://github.com/BaiGave/BaiGave_Plugin/assets/107305554/21bec841-9cdc-4272-be16-efacfdbdf9a2)
+### 核心设计
 
-5.你可以导入Wang酱的天空预制，让你的场景变得更加好看
+- **哈希字典笔刷**：O(1) 坐标查找，精确无误差
+- **几何节点实例化**：非破坏性编辑，支持动画
+- **版本抽象层**：Universal Format 实现跨版本转换
 
-![14](https://github.com/BaiGave/BaiGave_Plugin/assets/107305554/a2dabb2f-b6a2-442a-8192-97d5f65e62b1)
+---
 
-6.群系上色
+## 贡献者
 
-https://github.com/BaiGave/BaiGave_Plugin/assets/107305554/ddb95008-b957-4d31-a089-51a9bcdc30a8
+| 角色 | 贡献者 |
+|------|--------|
+| 主要开发 | BaiGave (bilibili) |
+| 几何节点 | 火锅料理、抛瓦尔第、暗影苦力怕、Piggestpig、荒芜新谷 |
+| 着色器 | WangXinRui |
+| 多进程支持 | Piggestpig / 冬猫夏羊工作室 |
+| 翻译 | marshmallowlands |
 
-（通过控制biome值可以改变群系颜色）
+---
 
+## 许可证
 
+本项目采用 [AGPL-3.0](https://github.com/BaiGave/BaiGave_Plugin/blob/main/LICENSE) 许可证。
 
-###### 导入nbt文件
+---
 
-###### 导入存档文件
+## 联系与支持
 
-###### 导入blockstate文件夹内的json文件
+- **QQ 群**: 878232347（Bug 反馈与交流）
+- **Bilibili**: [白给的个人空间](https://space.bilibili.com/3461563635731405)
+- **GitHub Issues**: [报告问题](https://github.com/BaiGave/BaiGave_Plugin/issues)
 
+---
 
+## 相关文档
 
-### 作者
-
-主要python插件开发：BaiGave(bilibili) 
-
-多进程支持(暂时注释？)：Piggestpig(Github)/冬猫夏羊工作室(bilibili)
-
-几何节点支持：火锅料理（bilibili） 转模部分 , 抛瓦尔第（bilibili） CTM部分（未实装) ，暗影苦力怕（面优化） ，Piggestpig(Github)/冬猫夏羊工作室(bilibili) 植物的自动摇摆，荒芜新谷（bilbil) 几种延时建筑的样式（未实装）
-
-着色器节点支持：WangXinRui (bilbil) 动态材质（大部分借鉴） 更好的树叶半透着色器 WXR的天空预设
-
-翻译支持：marshmallowlands (Github) 英语
-
-### 联系方式
-
-qq群:878232347    （有bug可以进来找白给解决)
-
-bilibili个人主页：https://space.bilibili.com/3461563635731405?spm_id_from=333.788.0.0 （时不时会发点教程视频【虽然做的很差qwq】）
-
-
-### 版权说明
-
-该项目签署了AGPL-3.0授权许可，详情请参阅 [LICENSE](https://github.com/BaiGave/BaiGave_Plugin/blob/main/LICENSE)
-
-
-
-
-
-<!-- links -->
-[your-project-path]:BaiGave/BaiGave_Plugin
-[contributors-shield]: https://img.shields.io/github/contributors/BaiGave/BaiGave_Plugin.svg?style=flat-square
-[contributors-url]: https://github.com/BaiGave/BaiGave_Plugin/graphs/contributors
-[forks-shield]: https://img.shields.io/github/forks/BaiGave/BaiGave_Plugin.svg?style=flat-square
-[forks-url]: https://github.com/BaiGave/BaiGave_Plugin/network/members
-[stars-shield]: https://img.shields.io/github/stars/BaiGave/BaiGave_Plugin.svg?style=flat-square
-[stars-url]: https://github.com/BaiGave/BaiGave_Plugin/stargazers
-[issues-shield]: https://img.shields.io/github/issues/BaiGave/BaiGave_Plugin.svg?style=flat-square
-[issues-url]: https://img.shields.io/github/issues/BaiGave/BaiGave_Plugin.svg
-[license-shield]: https://img.shields.io/github/license/BaiGave/BaiGave_Plugin.svg?style=flat-square
-[license-url]: https://github.com/BaiGave/BaiGave_Plugin/LICENSE.txt
-[linkedin-shield]: https://img.shields.io/badge/-LinkedIn-black.svg?style=flat-square&logo=linkedin&colorB=555
-[linkedin-url]: https://linkedin.com/in/shaojintian
-
-
+- [CLAUDE.md](CLAUDE.md) - 项目开发指南
+- [doc/data-flow-diagrams.md](doc/data-flow-diagrams.md) - 数据流程图
+- [doc/dependency-update-guide.md](doc/dependency-update-guide.md) - 依赖更新指南
