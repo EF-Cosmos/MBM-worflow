@@ -1,5 +1,7 @@
 import bpy
 
+# 导入依赖管理模块（使用相对导入）
+from .codes.dependency_manager import litemapy
 
 #主面板
 class MainPanel(bpy.types.Panel):
@@ -50,14 +52,25 @@ class ImportPanel(bpy.types.Panel):
     def draw(self,context):
         layout = self.layout
         scene = context.scene
-        
-        row = layout.row()    
+
+        row = layout.row()
         row.label(text = "导入",icon='ERROR')
         # 创建一个框
         box = layout.box()
         box.label(text="导入.schem文件")
         box.operator("baigave.schem_import_panel", text="导入.schem文件")
         layout.split()
+
+        # Litematic 导入
+        if litemapy is not None:
+            box = layout.box()
+            box.label(text="导入.litematic文件")
+            box.operator("baigave.import_litematic", text="导入.litematic文件")
+        else:
+            box = layout.box()
+            box.label(text="导入.litematic文件 (依赖缺失)")
+            box.enabled = False
+
         box = layout.box()
         box.label(text="导入方块")
         box.operator("baigave.import_block", text="导入方块")
